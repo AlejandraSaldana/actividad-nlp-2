@@ -20,7 +20,7 @@ class Calculadora:
                 return (self.x + self.y) / 2
 
         def potencia(self):
-                return self.x**self.y
+                return self.x**self
 
         def mayor(self):
                 return max(self.x, self.y)
