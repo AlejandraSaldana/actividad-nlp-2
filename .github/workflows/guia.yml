@@ -1,0 +1,48 @@
+name: Guía del proyecto
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - README.md
+      - GUIA_ALUMNOS.md
+      - material/GUIA_ALUMNOS.pdf
+      - herramientas/guia_pdf.py
+      - pruebas/test_guia.py
+      - requirements.txt
+      - .github/workflows/guia.yml
+  pull_request:
+    paths:
+      - README.md
+      - GUIA_ALUMNOS.md
+      - material/GUIA_ALUMNOS.pdf
+      - herramientas/guia_pdf.py
+      - pruebas/test_guia.py
+      - requirements.txt
+      - .github/workflows/guia.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  guia:
+    name: Generar y comprobar guía
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Instalar dependencias
+        run: python -m pip install -r requirements.txt
+      - name: Comprobar generador
+        run: python -m pytest pruebas/test_guia.py -v
+      - name: Generar PDF desde Markdown
+        run: python -m herramientas.guia_pdf
+      - name: Publicar guía descargable
+        uses: actions/upload-artifact@v4
+        with:
+          name: guia-para-alumnos-pdf
+          path: material/GUIA_ALUMNOS.pdf
+          if-no-files-found: error
