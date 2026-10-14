@@ -186,6 +186,7 @@ jobs:
 
   # 9. OWASP ZAP contra la API en marcha
   #    Espera a: integracion, secretos, seguridad, dependencias
+
   zap:
     name: OWASP ZAP
     runs-on: ubuntu-latest
@@ -204,8 +205,16 @@ jobs:
 
       - name: Levantar la API
         run: |
-          python -m uvicorn api:app --host 0.0.0.0 --port 8000 &
-          sleep 5
+          python -m uvicorn api:aplicacion --host 0.0.0.0 --port 8000 > /tmp/api.log 2>&1 &
+          echo $! > /tmp/api.pid
+          sleep 8
+
+      - name: Verificar que la API responde
+        run: |
+          echo "== log de la API =="
+          cat /tmp/api.log || true
+          echo "== curl /estado =="
+          curl -sS -v http://localhost:8000/estado || true
 
       - name: ZAP baseline scan
         uses: zaproxy/action-baseline@v0.12.0
