@@ -43,9 +43,9 @@ def esperar_analisis(tarea):
     raise TimeoutError("SonarQube tardó demasiado en terminar.")
 
 
-def obtener_problemas(nuevos=False):
+def obtener_problemas(project_key, nuevos=False):
     problemas = []
-    parametros = {"componentKeys": "calculadora", "resolved": "false", "ps": 500}
+    parametros = {"componentKeys": project_key, "resolved": "false", "ps": 500}
     if nuevos:
         parametros["sinceLeakPeriod"] = "true"
     for pagina in range(1, 21):
@@ -56,18 +56,18 @@ def obtener_problemas(nuevos=False):
     raise RuntimeError("Hay demasiados hallazgos para exportarlos completos.")
 
 
-def obtener_datos(analisis):
-    ultimo = consultar("project_analyses/search", project="calculadora", ps=1)["analyses"][0]
+def obtener_datos(analisis, project_key):
+    ultimo = consultar("project_analyses/search", project=project_key, ps=1)["analyses"][0]
     if ultimo["key"] != analisis or ultimo["revision"] != os.environ["GITHUB_SHA"]:
         raise RuntimeError("El análisis no corresponde al commit de esta ejecución.")
-    respuesta = consultar("measures/component", component="calculadora", metricKeys=METRICAS)
+    respuesta = consultar("measures/component", component=project_key, metricKeys=METRICAS)
     metricas = {}
     for metrica in respuesta["component"]["measures"]:
         metricas[metrica["metric"]] = metrica.get(
             "value", metrica.get("period", {}).get("value", "N/D")
         )
     datos = {
-        "project": "calculadora",
+        "project": project_key,
         "analysis_id": analisis,
         "revision": ultimo["revision"],
         "date": ultimo["date"],
@@ -75,11 +75,11 @@ def obtener_datos(analisis):
         "quality_gate": consultar("qualitygates/project_status", analysisId=analisis)[
             "projectStatus"
         ],
-        "overall_issues": obtener_problemas(),
-        "new_issues": obtener_problemas(nuevos=True),
-        "dashboard": f"{SERVIDOR}/dashboard?id=calculadora&codeScope=overall",
+        "overall_issues": obtener_problemas(project_key),
+        "new_issues": obtener_problemas(project_key, nuevos=True),
+        "dashboard": f"{SERVIDOR}/dashboard?id={project_key}&codeScope=overall",
     }
-    ultimo = consultar("project_analyses/search", project="calculadora", ps=1)["analyses"][0]
+    ultimo = consultar("project_analyses/search", project=project_key, ps=1)["analyses"][0]
     if ultimo["key"] != analisis:
         raise RuntimeError("Otro análisis cambió los resultados durante la descarga.")
     return datos
@@ -112,7 +112,7 @@ def principal():
     archivo = Path(".scannerwork/report-task.txt").read_text(encoding="utf-8")
     tarea = dict(linea.split("=", 1) for linea in archivo.splitlines() if "=" in linea)
     analisis = esperar_analisis(tarea["ceTaskId"])
-    datos = obtener_datos(analisis)
+    datos = obtener_datos(analisis, tarea["projectKey"])
     guardar_reportes(datos, Path("reports/sonarqube"))
     if os.environ.get("GITHUB_STEP_SUMMARY"):
         with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8") as archivo:
