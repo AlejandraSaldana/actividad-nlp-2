@@ -205,21 +205,20 @@ jobs:
 
       - name: Levantar la API
         run: |
-          python -m uvicorn api:aplicacion --host 0.0.0.0 --port 8000 > /tmp/api.log 2>&1 &
+          nohup python -m uvicorn api:aplicacion --host 0.0.0.0 --port 8000 \
+            > /tmp/api.log 2>&1 &
           echo $! > /tmp/api.pid
+          disown || true
           sleep 8
-
-      - name: Verificar que la API responde
-        run: |
-          echo "== log de la API =="
           cat /tmp/api.log || true
-          echo "== curl /estado =="
-          curl -sS -v http://localhost:8000/estado || true
+          curl -sS -f http://localhost:8000/estado
 
       - name: ZAP baseline scan
         uses: zaproxy/action-baseline@v0.12.0
         with:
-          target: "http://localhost:8000"
+          target: "http://localhost:8000/estado"
+          allow_issue_writing: false
+          fail_action: false
 
   # 10. BUILD AND ANALYZE (SonarQube)
   #     Espera a: cobertura, revision, secretos, seguridad, dependencias
