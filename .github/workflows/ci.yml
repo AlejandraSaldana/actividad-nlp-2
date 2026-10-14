@@ -1,0 +1,311 @@
+name: CI
+
+# ------------------------------------------------------------
+# Activadores:
+#   - push               |  SOLO main
+#   - pull_request       |  Comprueba propuestas de cambio
+#   - workflow_dispatch  |  Ejecución manual
+# ------------------------------------------------------------
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  # 1. REVISIÓN DE CÓDIGO Y FORMATO (Ruff)
+  revision:
+    name: Revisión de código (Ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar Ruff
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff
+
+      - name: Ruff check
+        run: python -m ruff check .
+
+      - name: Ruff format --check
+        run: python -m ruff format --check .
+
+  # 2. PRUEBAS UNITARIAS
+  unitarias:
+    name: Pruebas unitarias
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Ejecutar pruebas unitarias
+        run: python -m pytest pruebas/test_calculadora.py -v
+
+  # 3. PRUEBAS DE INTEGRACIÓN (menú + API)
+  #    Espera a: unitarias
+  integracion:
+    name: Pruebas de integración
+    runs-on: ubuntu-latest
+    needs: [unitarias]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Ejecutar pruebas de integración
+        run: python -m pytest pruebas/test_integracion.py -v
+
+  # 4. COBERTURA
+  #    Espera a: unitarias, integracion
+  #    Genera coverage.xml que consumirá SonarQube.
+  cobertura:
+    name: Cobertura
+    runs-on: ubuntu-latest
+    needs: [unitarias, integracion]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Ejecutar pruebas con cobertura
+        run: |
+          python -m pytest \
+            --cov \
+            --cov-report=term-missing \
+            --cov-report=xml
+
+      - name: Publicar coverage.xml como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml
+
+  # 5. SECRETOS (Gitleaks)
+  secretos:
+    name: Búsqueda de secretos (Gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # 6. SEGURIDAD (Bandit)
+  seguridad:
+    name: Seguridad (Bandit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar Bandit
+        run: |
+          python -m pip install --upgrade pip
+          pip install bandit
+
+      - name: Ejecutar Bandit
+        run: bandit -r . -x ./pruebas,./.venv,./herramientas
+
+  # 7. DEPENDENCIAS VULNERABLES (pip-audit)
+  dependencias:
+    name: Dependencias vulnerables (pip-audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar pip-audit
+        run: |
+          python -m pip install --upgrade pip
+          pip install pip-audit
+
+      - name: Auditar dependencias
+        run: pip-audit -r requirements.txt
+
+  # 8. DEPENDENCIAS OBSOLETAS (informativo)
+  obsoletas:
+    name: Dependencias obsoletas (informativo)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Listar dependencias obsoletas
+        run: python -m pip list --outdated
+
+  # 9. OWASP ZAP contra la API en marcha
+  #    Espera a: integracion, secretos, seguridad, dependencias
+  zap:
+    name: OWASP ZAP
+    runs-on: ubuntu-latest
+    needs: [integracion, secretos, seguridad, dependencias]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Levantar la API
+        run: |
+          python -m uvicorn api:app --host 0.0.0.0 --port 8000 &
+          sleep 5
+
+      - name: ZAP baseline scan
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: "http://localhost:8000"
+
+  # 10. BUILD AND ANALYZE (SonarQube)
+  #     Espera a: cobertura, revision, secretos, seguridad, dependencias
+  #     Solo en main
+  build-and-analyze:
+    name: Build and analyze
+    runs-on: ubuntu-latest
+    needs: [cobertura, revision, secretos, seguridad, dependencias]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Shallow clones desactivados para mejor relevancia del análisis
+
+      - name: Descargar coverage.xml
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-xml
+
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@v5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: https://sonarqube.lynvera.ai
+
+      # Si quieres que el job falle cuando el Quality Gate esté en rojo,
+      # descomenta las siguientes líneas:
+      # - uses: sonarsource/sonarqube-quality-gate-action@master
+      #   timeout-minutes: 5
+      #   env:
+      #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  # 11. REPORTE (PDF + JSON + MD) Y QUALITY GATE
+  #     Espera a: build-and-analyze
+  #     Solo en main.
+  reporte:
+    name: Reporte SonarQube
+    runs-on: ubuntu-latest
+    needs: [build-and-analyze]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Generar reportes (PDF, JSON, MD)
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: python -m herramientas.reporte_sonarqube
+
+      - name: Publicar artefacto sonarqube-report-pdf-json-md
+        uses: actions/upload-artifact@v4
+        with:
+          name: sonarqube-report-pdf-json-md
+          path: |
+            sonarqube.pdf
+            sonarqube.json
+            sonarqube.md
+
+  # 12. RESUMEN
+  #     Espera a TODOS. Se ejecuta siempre (if: always()).
+  resumen:
+    name: Resumen
+    runs-on: ubuntu-latest
+    needs:
+      - revision
+      - unitarias
+      - integracion
+      - cobertura
+      - secretos
+      - seguridad
+      - dependencias
+      - obsoletas
+      - zap
+      - build-and-analyze
+      - reporte
+    if: always()
+    steps:
+      - name: Estado de todos los controles
+        run: |
+          echo "revision:           ${{ needs.revision.result }}"
+          echo "unitarias:          ${{ needs.unitarias.result }}"
+          echo "integracion:        ${{ needs.integracion.result }}"
+          echo "cobertura:          ${{ needs.cobertura.result }}"
+          echo "secretos:           ${{ needs.secretos.result }}"
+          echo "seguridad:          ${{ needs.seguridad.result }}"
+          echo "dependencias:       ${{ needs.dependencias.result }}"
+          echo "obsoletas:          ${{ needs.obsoletas.result }}"
+          echo "zap:                ${{ needs.zap.result }}"
+          echo "build-and-analyze:  ${{ needs.build-and-analyze.result }}"
+          echo "reporte:            ${{ needs.reporte.result }}"
