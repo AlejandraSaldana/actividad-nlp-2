@@ -1,47 +1,65 @@
+import math
+
+
 class Calculadora:
-        def __init__(self, x, y, operacion):
-                self.x = x
-                self.y = y
-                self.operacion = operacion
+    def __init__(self, operacion, numeros):
+        self.operacion = operacion
+        self.numeros = numeros
 
-        def suma(self):
-                return self.x + self.y
+    def suma(self):
+        return sum(self.numeros)
 
-        def resta(self):
-                return self.x - self.y
+    def resta(self):
+        return self.numeros[0] - sum(self.numeros[1:])
 
-        def multiplicacion(self):
-                return self.x * self.y
+    def multiplicacion(self):
+        resultado = 1
+        for numero in self.numeros:
+            resultado *= numero
+        return resultado
 
-        def division(self):
-                return self.x / self.y
+    def division(self):
+        resultado = self.numeros[0]
+        for numero in self.numeros[1:]:
+            if numero == 0:
+                raise ZeroDivisionError("No se puede dividir entre cero")
+            resultado /= numero
+        return resultado
 
-        def promedio(self):
-                return (self.x + self.y) / 2
+    def promedio(self):
+        return sum(self.numeros) / len(self.numeros)
 
-        def potencia(self):
-                return self.x**self.y
+    def potencia(self):
+        return self.numeros[0] ** self.numeros[1]
 
-        def mayor(self):
-                return max(self.x, self.y)
+    def mayor(self):
+        return max(self.numeros)
 
-        def menor(self):
-                return min(self.x, self.y)
+    def menor(self):
+        return min(self.numeros)
 
-        def resultado(self):
-                operaciones = {
-                        "suma": self.suma,
-                        "resta": self.resta,
-                        "multiplicacion": self.multiplicacion,
-                        "division": self.division,
-                        "promedio": self.promedio,
-                        "potencia": self.potencia,
-                        "mayor": self.mayor,
-                        "menor": self.menor,
-                }
-                if self.operacion not in operaciones:
-                        raise ValueError(f"Operación no válida: {self.operacion}")
-                return operaciones[self.operacion]()
+    def resultado(self):
+        operaciones = {
+            "suma": self.suma,
+            "resta": self.resta,
+            "multiplicacion": self.multiplicacion,
+            "division": self.division,
+            "promedio": self.promedio,
+            "potencia": self.potencia,
+            "mayor": self.mayor,
+            "menor": self.menor,
+        }
+        if self.operacion not in operaciones:
+            raise ValueError(f"Operación no válida: {self.operacion}")
+        if not isinstance(self.numeros, list) or not self.numeros:
+            raise ValueError("Debes escribir al menos un número")
+        for numero in self.numeros:
+            if type(numero) not in (int, float) or not math.isfinite(numero):
+                raise ValueError("Solo se aceptan números reales y finitos")
+        if self.operacion == "potencia" and len(self.numeros) != 2:
+            raise ValueError("La potencia necesita dos números: base y exponente")
+        return operaciones[self.operacion]()
+
 
 def solicitar_numero(mensaje):
     while True:
@@ -67,24 +85,6 @@ def solicitar_lista_numeros():
         num = solicitar_numero(f"Ingresa el número {i + 1}: ")
         numeros.append(num)
     return numeros
-
-
-def operar_lista(operacion, numeros):
-    if operacion == "suma":
-        return sum(numeros)
-    elif operacion == "multiplicacion":
-        resultado = 1
-        for n in numeros:
-            resultado *= n
-        return resultado
-    elif operacion == "promedio":
-        return sum(numeros) / len(numeros)
-    elif operacion == "mayor":
-        return max(numeros)
-    elif operacion == "menor":
-        return min(numeros)
-    else:
-        raise ValueError(f"Operación no soportada para listas: {operacion}")
 
 
 def main():
@@ -124,17 +124,7 @@ CALCULADORA
 
             x = solicitar_numero("Ingresa el primer número: ")
             y = solicitar_numero("Ingresa el segundo número: ")
-
-            if nombre == "division" and y == 0:
-                print("Error: no se puede dividir entre cero.")
-                continue
-
-            try:
-                calc = Calculadora(x, y, nombre)
-                resultado = calc.resultado()
-                print(f"Resultado de la {nombre}: {resultado}")
-            except Exception as e:
-                print(f"Error inesperado: {e}")
+            numeros = [x, y]
 
         # Operaciones con listas de números
         elif opcion in ("1", "3", "5", "7", "8"):
@@ -148,14 +138,16 @@ CALCULADORA
             nombre = nombres[opcion]
             numeros = solicitar_lista_numeros()
 
-            try:
-                resultado = operar_lista(nombre, numeros)
-                print(f"Resultado de la {nombre}: {resultado}")
-            except Exception as e:
-                print(f"Error inesperado: {e}")
-
         else:
             print("Error: opción no válida. Elige un número del 1 al 9.")
+            continue
+
+        try:
+            calc = Calculadora(nombre, numeros)
+            resultado = calc.resultado()
+            print(f"Resultado de la {nombre}: {resultado}")
+        except (ValueError, ZeroDivisionError, OverflowError) as e:
+            print(f"Error: {e}")
 
         # Preguntar si desea continuar
         continuar = input("\n¿Deseas realizar otra operación? (s/n): ").strip().lower()
