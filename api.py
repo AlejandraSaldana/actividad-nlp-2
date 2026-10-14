@@ -30,6 +30,11 @@ async def agregar_cabeceras(peticion, siguiente):
     return respuesta
 
 
+@aplicacion.get("/")
+def raiz():
+    return {"estado": "correcto"}
+
+
 @aplicacion.get("/estado")
 def estado():
     return {"estado": "correcto"}

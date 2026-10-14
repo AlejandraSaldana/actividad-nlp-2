@@ -97,3 +97,9 @@ def test_api_con_errores():
         assert respuesta.status_code == 400
         assert "detail" in respuesta.json()
     assert cliente.post("/calcular", json=[1, 2]).status_code == 422
+
+
+def test_raiz_responde_ok():
+    respuesta = cliente.get("/")
+    assert respuesta.status_code == 200
+    assert respuesta.json() == {"estado": "correcto"}
