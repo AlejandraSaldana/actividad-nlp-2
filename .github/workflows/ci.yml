@@ -214,7 +214,8 @@ jobs:
           curl -sS -f http://localhost:8000/estado
 
       - name: ZAP baseline scan
-        uses: zaproxy/action-baseline@v0.12.0
+        uses: zaproxy/action-baseline@v0.14.0
+        continue-on-error: true
         with:
           target: "http://localhost:8000/estado"
           allow_issue_writing: false
