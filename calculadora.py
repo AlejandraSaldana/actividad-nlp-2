@@ -45,8 +45,14 @@ class Calculadora:
 
     def _validar_entrada(self):
         operaciones_validas = {
-            "suma", "resta", "multiplicacion", "division",
-            "promedio", "potencia", "mayor", "menor",
+            "suma",
+            "resta",
+            "multiplicacion",
+            "division",
+            "promedio",
+            "potencia",
+            "mayor",
+            "menor",
         }
         if not isinstance(self.operacion, str) or self.operacion not in operaciones_validas:
             raise ValueError(f"Operación no válida: {self.operacion}")
