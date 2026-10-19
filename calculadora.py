@@ -27,9 +27,14 @@ class Calculadora:
         return resultado
 
     def promedio(self):
-        return sum(self.numeros) / len(self.numeros)
+        total = sum(self.numeros)
+        if isinstance(total, float) and not math.isfinite(total):
+            return sum(numero / len(self.numeros) for numero in self.numeros)
+        return total / len(self.numeros)
 
     def potencia(self):
+        if abs(self.numeros[1]) > 10000:
+            raise ValueError("Usa un exponente entre -10000 y 10000")
         return self.numeros[0] ** self.numeros[1]
 
     def mayor(self):
@@ -49,7 +54,7 @@ class Calculadora:
             "mayor": self.mayor,
             "menor": self.menor,
         }
-        if self.operacion not in operaciones:
+        if not isinstance(self.operacion, str) or self.operacion not in operaciones:
             raise ValueError(f"Operación no válida: {self.operacion}")
         if not isinstance(self.numeros, list) or not self.numeros:
             raise ValueError("Debes escribir al menos un número")
@@ -58,7 +63,10 @@ class Calculadora:
                 raise ValueError("Solo se aceptan números reales y finitos")
         if self.operacion == "potencia" and len(self.numeros) != 2:
             raise ValueError("La potencia necesita dos números: base y exponente")
-        return operaciones[self.operacion]()
+        resultado = operaciones[self.operacion]()
+        if type(resultado) not in (int, float) or not math.isfinite(resultado):
+            raise ValueError("El resultado debe ser un número real y finito")
+        return resultado
 
 
 def solicitar_numero(mensaje):

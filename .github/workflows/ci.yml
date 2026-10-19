@@ -32,7 +32,7 @@ jobs:
       - name: Instalar Ruff
         run: |
           python -m pip install --upgrade pip
-          pip install ruff
+          pip install ruff==0.17.0
 
       - name: Ruff check
         run: python -m ruff check .
@@ -57,7 +57,7 @@ jobs:
           python -m pip install -r requirements.txt
 
       - name: Ejecutar pruebas unitarias
-        run: python -m pytest pruebas/test_calculadora.py -v
+        run: python -m pytest pruebas/test_calculadora.py pruebas/test_reporte.py pruebas/test_guia.py -v
 
   # 3. PRUEBAS DE INTEGRACIÓN (menú + API)
   #    Espera a: unitarias
@@ -104,13 +104,17 @@ jobs:
           python -m pytest \
             --cov \
             --cov-report=term-missing \
-            --cov-report=xml
+            --cov-report=xml \
+            --junitxml=reports/junit.xml
 
       - name: Publicar coverage.xml como artefacto
         uses: actions/upload-artifact@v4
         with:
           name: coverage-xml
-          path: coverage.xml
+          path: |
+            coverage.xml
+            reports/junit.xml
+          if-no-files-found: error
 
   # 5. SECRETOS (Gitleaks)
   secretos:
@@ -140,10 +144,10 @@ jobs:
       - name: Instalar Bandit
         run: |
           python -m pip install --upgrade pip
-          pip install bandit
+          pip install bandit==1.9.4
 
       - name: Ejecutar Bandit
-        run: bandit -r . -x ./pruebas,./.venv,./herramientas
+        run: bandit -r calculadora.py api.py herramientas
 
   # 7. DEPENDENCIAS VULNERABLES (pip-audit)
   dependencias:
@@ -159,7 +163,7 @@ jobs:
       - name: Instalar pip-audit
         run: |
           python -m pip install --upgrade pip
-          pip install pip-audit
+          pip install pip-audit==2.10.1
 
       - name: Auditar dependencias
         run: pip-audit -r requirements.txt
@@ -209,16 +213,23 @@ jobs:
             > /tmp/api.log 2>&1 &
           echo $! > /tmp/api.pid
           disown || true
-          sleep 8
-          cat /tmp/api.log || true
-          curl -sS -f http://localhost:8000/estado
+          for intento in {1..30}; do
+            if curl -fsS http://localhost:8000/estado; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/api.log
+          exit 1
 
       - name: ZAP baseline scan
-        uses: zaproxy/action-baseline@v0.12.0
+        uses: zaproxy/action-baseline@v0.14.0
         with:
           target: "http://localhost:8000/estado"
           allow_issue_writing: false
-          fail_action: false
+          fail_action: true
+          cmd_options: "-c .zap/reglas.tsv"
+          artifact_name: zap-report
 
   # 10. BUILD AND ANALYZE (SonarQube)
   #     Espera a: cobertura, revision, secretos, seguridad, dependencias
@@ -239,17 +250,18 @@ jobs:
           name: coverage-xml
 
       - name: SonarQube Scan
-        uses: sonarsource/sonarqube-scan-action@v5
+        uses: sonarsource/sonarqube-scan-action@v6
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: https://sonarqube.lynvera.ai
 
-      # Si quieres que el job falle cuando el Quality Gate esté en rojo,
-      # descomenta las siguientes líneas:
-      # - uses: sonarsource/sonarqube-quality-gate-action@master
-      #   timeout-minutes: 5
-      #   env:
-      #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      - name: Publicar identificador del análisis
+        uses: actions/upload-artifact@v4
+        with:
+          name: sonar-task
+          path: .scannerwork/report-task.txt
+          include-hidden-files: true
+          if-no-files-found: error
 
   # 11. REPORTE (PDF + JSON + MD) Y QUALITY GATE
   #     Espera a: build-and-analyze
@@ -271,19 +283,24 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
 
+      - name: Descargar identificador del análisis
+        uses: actions/download-artifact@v4
+        with:
+          name: sonar-task
+          path: .scannerwork
+
       - name: Generar reportes (PDF, JSON, MD)
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: python -m herramientas.reporte_sonarqube
 
       - name: Publicar artefacto sonarqube-report-pdf-json-md
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: sonarqube-report-pdf-json-md
-          path: |
-            sonarqube.pdf
-            sonarqube.json
-            sonarqube.md
+          path: reports/sonarqube/
+          if-no-files-found: error
 
   # 12. RESUMEN
   #     Espera a TODOS. Se ejecuta siempre (if: always()).
@@ -305,15 +322,26 @@ jobs:
     if: always()
     steps:
       - name: Estado de todos los controles
+        env:
+          RESULTADOS: ${{ toJSON(needs) }}
         run: |
-          echo "revision:           ${{ needs.revision.result }}"
-          echo "unitarias:          ${{ needs.unitarias.result }}"
-          echo "integracion:        ${{ needs.integracion.result }}"
-          echo "cobertura:          ${{ needs.cobertura.result }}"
-          echo "secretos:           ${{ needs.secretos.result }}"
-          echo "seguridad:          ${{ needs.seguridad.result }}"
-          echo "dependencias:       ${{ needs.dependencias.result }}"
-          echo "obsoletas:          ${{ needs.obsoletas.result }}"
-          echo "zap:                ${{ needs.zap.result }}"
-          echo "build-and-analyze:  ${{ needs.build-and-analyze.result }}"
-          echo "reporte:            ${{ needs.reporte.result }}"
+          python - <<'PY'
+          import json
+          import os
+          import sys
+
+          fallos = []
+          for nombre, datos in json.loads(os.environ["RESULTADOS"]).items():
+              estado = datos["result"]
+              print(f"{nombre}: {estado}")
+              if nombre == "obsoletas":
+                  continue
+              if nombre in ("build-and-analyze", "reporte") and estado == "skipped":
+                  if os.environ["GITHUB_REF"] != "refs/heads/main":
+                      continue
+              if estado != "success":
+                  fallos.append(nombre)
+          if fallos:
+              print("Controles pendientes: " + ", ".join(fallos))
+              sys.exit(1)
+          PY

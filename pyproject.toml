@@ -6,7 +6,7 @@ addopts = "-ra"
 [tool.coverage.run]
 relative_files = true
 branch = true
-source = ["."]
+source = ["calculadora", "api", "herramientas"]
 omit = ["pruebas/*", "build/*", ".venv/*"]
 
 [tool.coverage.report]

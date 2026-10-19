@@ -27,7 +27,7 @@ python calculadora.py
 
 La clase `Calculadora` recibe una operación y una lista de números. `resultado()` valida la entrada y selecciona el método correspondiente.
 
-Operaciones: `suma`, `resta`, `multiplicacion`, `division`, `promedio`, `potencia`, `mayor` y `menor`. La potencia requiere exactamente dos números. El menú permite repetir operaciones o salir.
+Operaciones: `suma`, `resta`, `multiplicacion`, `division`, `promedio`, `potencia`, `mayor` y `menor`. La potencia requiere exactamente dos números y admite exponentes entre -10000 y 10000. Se rechazan resultados complejos o no finitos; la API acepta como máximo 1000 números por petición. El menú permite repetir operaciones o salir.
 
 Para iniciar la API:
 
