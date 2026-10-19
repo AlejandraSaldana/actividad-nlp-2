@@ -85,6 +85,41 @@ def tabla(lineas):
     return resultado
 
 
+def _bloque_codigo(lineas, indice):
+    """Devuelve (elemento, nuevo_indice) para un bloque ```...```."""
+    codigo = []
+    while indice < len(lineas) and not lineas[indice].startswith("```"):
+        codigo.append(lineas[indice])
+        indice += 1
+    if indice == len(lineas):
+        raise ValueError("Bloque de código sin cierre en la guía.")
+    return Preformatted("\n".join(codigo), ESTILOS["codigo"]), indice + 1
+
+
+def _bloque_tabla(lineas, indice):
+    """Devuelve (elementos, nuevo_indice) para una tabla Markdown."""
+    filas = [lineas[indice - 1]]
+    while indice < len(lineas) and lineas[indice].startswith("|"):
+        filas.append(lineas[indice])
+        indice += 1
+    return [tabla(filas), Spacer(1, 10)], indice
+
+
+def _estilo_linea(linea):
+    """Separa el prefijo de encabezado y devuelve (texto, estilo)."""
+    for prefijo, nombre in [("### ", "h3"), ("## ", "h2"), ("# ", "h1")]:
+        if linea.startswith(prefijo):
+            return linea[len(prefijo) :], nombre
+    return linea, "texto"
+
+
+def _parrafo(linea):
+    texto, estilo = _estilo_linea(linea)
+    if texto.startswith("- "):
+        texto = "• " + texto[2:]
+    return [Paragraph(escape(texto), ESTILOS[estilo]), Spacer(1, 8)]
+
+
 def contenido_markdown(fuente):
     """Admite los encabezados, listas, tablas y bloques usados por esta guía."""
     lineas = fuente.splitlines()
@@ -98,29 +133,13 @@ def contenido_markdown(fuente):
         if linea == "<!-- pagina -->":
             contenido.append(PageBreak())
         elif linea.startswith("```"):
-            codigo = []
-            while indice < len(lineas) and not lineas[indice].startswith("```"):
-                codigo.append(lineas[indice])
-                indice += 1
-            if indice == len(lineas):
-                raise ValueError("Bloque de código sin cierre en la guía.")
-            indice += 1
-            contenido.append(Preformatted("\n".join(codigo), ESTILOS["codigo"]))
+            elemento, indice = _bloque_codigo(lineas, indice)
+            contenido.append(elemento)
         elif linea.startswith("|"):
-            filas = [linea]
-            while indice < len(lineas) and lineas[indice].startswith("|"):
-                filas.append(lineas[indice])
-                indice += 1
-            contenido.extend([tabla(filas), Spacer(1, 10)])
+            elementos, indice = _bloque_tabla(lineas, indice)
+            contenido.extend(elementos)
         else:
-            estilo = "texto"
-            for prefijo, nombre in [("### ", "h3"), ("## ", "h2"), ("# ", "h1")]:
-                if linea.startswith(prefijo):
-                    linea, estilo = linea[len(prefijo) :], nombre
-                    break
-            if linea.startswith("- "):
-                linea = "• " + linea[2:]
-            contenido.extend([Paragraph(escape(linea), ESTILOS[estilo]), Spacer(1, 8)])
+            contenido.extend(_parrafo(linea))
     return contenido
 
 

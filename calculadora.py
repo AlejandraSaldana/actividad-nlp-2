@@ -43,6 +43,21 @@ class Calculadora:
     def menor(self):
         return min(self.numeros)
 
+    def _validar_entrada(self):
+        operaciones_validas = {
+            "suma", "resta", "multiplicacion", "division",
+            "promedio", "potencia", "mayor", "menor",
+        }
+        if not isinstance(self.operacion, str) or self.operacion not in operaciones_validas:
+            raise ValueError(f"Operación no válida: {self.operacion}")
+        if not isinstance(self.numeros, list) or not self.numeros:
+            raise ValueError("Debes escribir al menos un número")
+        for numero in self.numeros:
+            if type(numero) not in (int, float) or not math.isfinite(numero):
+                raise ValueError("Solo se aceptan números reales y finitos")
+        if self.operacion == "potencia" and len(self.numeros) != 2:
+            raise ValueError("La potencia necesita dos números: base y exponente")
+
     def resultado(self):
         operaciones = {
             "suma": self.suma,
@@ -54,15 +69,7 @@ class Calculadora:
             "mayor": self.mayor,
             "menor": self.menor,
         }
-        if not isinstance(self.operacion, str) or self.operacion not in operaciones:
-            raise ValueError(f"Operación no válida: {self.operacion}")
-        if not isinstance(self.numeros, list) or not self.numeros:
-            raise ValueError("Debes escribir al menos un número")
-        for numero in self.numeros:
-            if type(numero) not in (int, float) or not math.isfinite(numero):
-                raise ValueError("Solo se aceptan números reales y finitos")
-        if self.operacion == "potencia" and len(self.numeros) != 2:
-            raise ValueError("La potencia necesita dos números: base y exponente")
+        self._validar_entrada()
         resultado = operaciones[self.operacion]()
         if type(resultado) not in (int, float) or not math.isfinite(resultado):
             raise ValueError("El resultado debe ser un número real y finito")
