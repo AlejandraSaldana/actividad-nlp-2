@@ -108,6 +108,19 @@ def solicitar_lista_numeros():
     return numeros
 
 
+def operacion_dos_numeros(opcion):
+    if opcion == "2":
+        nombre = "resta"
+        print("Resta: primero menos segundo.")
+    elif opcion == "4":
+        nombre = "division"
+        print("División: primero entre segundo.")
+    else:
+        nombre = "potencia"
+        print("Potencia: primero elevado al segundo.")
+    return nombre
+
+
 def main():
     menu = """
 CALCULADORA
@@ -133,15 +146,7 @@ CALCULADORA
 
         # Operaciones que requieren dos números en orden específico
         if opcion in ("2", "4", "6"):
-            if opcion == "2":
-                nombre = "resta"
-                print("Resta: primero menos segundo.")
-            elif opcion == "4":
-                nombre = "division"
-                print("División: primero entre segundo.")
-            else:
-                nombre = "potencia"
-                print("Potencia: primero elevado al segundo.")
+            nombre = operacion_dos_numeros(opcion)
 
             x = solicitar_numero("Ingresa el primer número: ")
             y = solicitar_numero("Ingresa el segundo número: ")
