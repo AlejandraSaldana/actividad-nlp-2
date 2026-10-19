@@ -228,7 +228,7 @@ jobs:
           target: "http://localhost:8000/estado"
           allow_issue_writing: false
           fail_action: true
-          rules_file_name: .zap/reglas.tsv
+          cmd_options: "-c .zap/reglas.tsv"
           artifact_name: zap-report
 
   # 10. BUILD AND ANALYZE (SonarQube)
