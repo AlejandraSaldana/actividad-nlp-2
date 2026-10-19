@@ -119,6 +119,8 @@ def principal():
             archivo.write(resumen(datos))
     if datos["quality_gate"]["status"] != "OK":
         raise SystemExit("El Quality Gate no fue aprobado. El reporte explica el resultado.")
+    if datos["overall_issues"]:
+        raise SystemExit("El proyecto todavía tiene issues abiertos. Revisa el reporte.")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,3 @@
+# Cache-Control: no-store es intencional en esta API de calculadora.
+# Se conserva el hallazgo en el reporte como informativo; las demás alertas bloquean CI.
+10049	INFO	Non-Storable Content: respuestas que no deben almacenarse en caché.

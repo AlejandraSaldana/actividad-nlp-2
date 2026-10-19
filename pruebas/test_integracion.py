@@ -103,3 +103,19 @@ def test_raiz_responde_ok():
     respuesta = cliente.get("/")
     assert respuesta.status_code == 200
     assert respuesta.json() == {"estado": "correcto"}
+
+
+def test_api_rechaza_tipos_y_resultados_no_representables():
+    casos = [
+        {"operacion": [], "numeros": [1]},
+        {"operacion": {}, "numeros": [1]},
+        {"operacion": "suma", "numeros": [1e308, 1e308]},
+        {"operacion": "multiplicacion", "numeros": [1e308, 2]},
+        {"operacion": "potencia", "numeros": [-1, 0.5]},
+        {"operacion": "potencia", "numeros": [2, 15000]},
+        {"operacion": "potencia", "numeros": [2, 10000]},
+    ]
+    for datos in casos:
+        respuesta = cliente.post("/calcular", json=datos)
+        assert respuesta.status_code == 400
+        assert "detail" in respuesta.json()

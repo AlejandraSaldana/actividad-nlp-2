@@ -88,3 +88,35 @@ def test_potencia_necesita_dos_numeros():
 def test_valores_no_numericos(valor):
     with pytest.raises(ValueError, match="reales y finitos"):
         Calculadora("suma", [1, valor]).resultado()
+
+
+@pytest.mark.parametrize("operacion", [[], {}, None, 1])
+def test_tipo_de_operacion_incorrecto(operacion):
+    with pytest.raises(ValueError, match="Operación no válida"):
+        Calculadora(operacion, [1]).resultado()
+
+
+@pytest.mark.parametrize(
+    "operacion,numeros",
+    [
+        ("suma", [1e308, 1e308]),
+        ("multiplicacion", [1e308, 2]),
+        ("potencia", [-1, 0.5]),
+    ],
+)
+def test_resultado_fuera_de_los_reales_finitos(operacion, numeros):
+    with pytest.raises(ValueError, match="real y finito"):
+        Calculadora(operacion, numeros).resultado()
+
+
+def test_promedio_no_desborda_al_sumar():
+    assert Calculadora("promedio", [1e308, 1e308]).resultado() == 1e308
+
+
+def test_potencia_limita_el_trabajo():
+    with pytest.raises(ValueError, match="exponente"):
+        Calculadora("potencia", [2, 10**100]).resultado()
+
+
+def test_promedio_con_numeros_muy_pequenos():
+    assert Calculadora("promedio", [1e-323] * 1000).resultado() == 1e-323
