@@ -6,7 +6,8 @@ addopts = "-ra"
 [tool.coverage.run]
 relative_files = true
 branch = true
-source = ["calculadora", "api", "herramientas"]
+# Una sola raíz conserva las rutas completas que necesita SonarQube.
+source = ["."]
 omit = ["pruebas/*", "build/*", ".venv/*"]
 
 [tool.coverage.report]
